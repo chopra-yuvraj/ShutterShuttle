@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Scanner - ShutterShuttle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'navy-dark': '#0F172A',
+                        'navy-light': '#1E293B',
+                        'teal-accent': '#2DD4BF',
+                        'teal-hover': '#14B8A6',
+                        'gray-text': '#CBD5E1',
+                        'gray-heading': '#F1F5F9',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-navy-dark text-gray-text min-h-screen">
+    <div class="container mx-auto p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-teal-accent">Face Scanner</h1>
+            <a href="{{ url_for('shuttle_dashboard') }}" class="bg-gray-500 hover:bg-gray-600 px-4 py-2 rounded text-white transition">← Back</a>
+        </div>
+        
+        <div class="bg-navy-light rounded-2xl p-6 border border-teal-accent/20">
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="rounded-xl overflow-hidden border border-gray-600">
+                    <video id="camera" autoplay playsinline muted class="w-full h-80 object-cover bg-black"></video>
+                    <div class="p-2 bg-navy-dark text-center">
+                        <small class="text-gray-400">Live Camera Feed</small>
+                    </div>
+                </div>
+                
+                <div class="rounded-xl overflow-hidden border border-gray-600">
+                    <canvas id="snapshot" class="w-full h-80 bg-navy-dark"></canvas>
+                    <div class="p-2 bg-navy-dark text-center">
+                        <small class="text-gray-400">Captured Image</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-4 mt-6">
+                <button id="startCam" class="px-6 py-3 rounded-full font-semibold text-navy-dark bg-teal-accent hover:bg-teal-hover transition">
+                    Start Camera
+                </button>
+                <button id="capture" class="px-6 py-3 rounded-full font-semibold border border-gray-600 text-gray-text hover:text-teal-accent hover:border-teal-accent transition">
+                    Scan & Deduct Fare
+                </button>
+            </div>
+            
+            <div id="result" class="mt-6"></div>
+        </div>
+    </div>
+
+    <form id="scanForm" method="POST" style="display:none;">
+        <input type="hidden" id="photo_data" name="photo_data">
+    </form>
+
+    <script>
+        const startBtn = document.getElementById('startCam');
+        const captureBtn = document.getElementById('capture');
+        const video = document.getElementById('camera');
+        const canvas = document.getElementById('snapshot');
+        const result = document.getElementById('result');
+        const form = document.getElementById('scanForm');
+        const hiddenPhoto = document.getElementById('photo_data');
+
+        let stream = null;
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+                video.srcObject = stream;
+                startBtn.textContent = 'Camera Active';
+                startBtn.disabled = true;
+            } catch (e) {
+                alert('Camera access denied or not available: ' + e.message);
+            }
+        });
+
+        captureBtn.addEventListener('click', async () => {
+            if (!video.srcObject) {
+                alert('Start the camera first');
+                return;
+            }
+
+            const w = video.videoWidth || 640;
+            const h = video.videoHeight || 480;
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+
+            const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+            hiddenPhoto.value = dataURL;
+
+            result.innerHTML = '<div class="p-4 bg-blue-900/20 border border-blue-400/30 rounded text-blue-300">Processing...</div>';
+
+            try {
+                const response = await fetch('/scan', {
+                    method: 'POST',
+                    body: new FormData(form)
+                });
+                
+                const data = await response.json();
+
+                if (data.ok) {
+                    result.innerHTML = `
+                        <div class="p-4 bg-green-900/20 border border-green-400/30 rounded">
+                            <div class="text-lg font-semibold text-green-400 mb-2">Payment Successful!</div>
+                            <p class="text-gray-text"><strong>Student:</strong> ${data.match.name} (${data.match.reg})</p>
+                            <p class="text-gray-text"><strong>Fare:</strong> ₹${data.fare}</p>
+                            <p class="text-gray-text"><strong>New Balance:</strong> ₹${data.new_balance.toFixed(2)}</p>
+                        </div>`;
+                } else {
+                    result.innerHTML = `
+                        <div class="p-4 bg-red-900/20 border border-red-400/30 rounded">
+                            <div class="text-lg font-semibold text-red-400 mb-2">Scan Failed</div>
+                            <p class="text-gray-text">${data.error}</p>
+                        </div>`;
+                }
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="p-4 bg-red-900/20 border border-red-400/30 rounded">
+                        <div class="text-lg font-semibold text-red-400">Network Error</div>
+                        <p class="text-gray-text">${error.message}</p>
+                    </div>`;
+            }
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (stream) stream.getTracks().forEach(t => t.stop());
+        });
+    </script>
+</body>
+</html>

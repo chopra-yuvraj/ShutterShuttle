@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - ShutterShuttle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'navy-dark': '#0F172A',
+                        'navy-light': '#1E293B',
+                        'teal-accent': '#2DD4BF',
+                        'teal-hover': '#14B8A6',
+                        'gray-text': '#CBD5E1',
+                        'gray-heading': '#F1F5F9',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-navy-dark text-gray-text min-h-screen">
+    <div class="container mx-auto p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-teal-accent">Student Dashboard</h1>
+            <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-white transition">Logout</a>
+        </div>
+        
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="p-4 rounded-lg mb-4 {{ 'bg-green-900/20 border border-green-500/30 text-green-400' if category == 'success' else 'bg-red-900/20 border border-red-500/30 text-red-400' }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+        
+        <div class="grid md:grid-cols-2 gap-6">
+            <div class="bg-navy-light p-6 rounded-lg border border-teal-accent/20">
+                <h2 class="text-xl font-semibold mb-4 text-teal-accent">Wallet Balance</h2>
+                <div class="text-center mb-4">
+                    <div class="text-4xl font-bold text-teal-accent">₹{{ balance }}</div>
+                    <p class="text-gray-text">Current Balance</p>
+                </div>
+                <a href="{{ url_for('add_balance') }}" class="w-full block text-center bg-teal-accent hover:bg-teal-hover px-4 py-2 rounded text-navy-dark font-semibold transition">Add Balance</a>
+            </div>
+            
+            <div class="bg-navy-light p-6 rounded-lg border border-teal-accent/20">
+                <h2 class="text-xl font-semibold mb-4 text-teal-accent">Account Info</h2>
+                <div class="space-y-2">
+                    <p class="text-gray-text"><strong>Name:</strong> {{ session.name }}</p>
+                    <p class="text-gray-text"><strong>Email:</strong> {{ session.email }}</p>
+                    <p class="text-gray-text"><strong>Role:</strong> Student</p>
+                </div>
+                <div class="mt-4 p-3 bg-teal-900/20 border border-teal-500/30 rounded">
+                    <p class="text-teal-300 text-sm">💡 Use your face to pay for shuttle rides automatically!</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 bg-navy-light p-6 rounded-lg border border-teal-accent/20">
+            <h2 class="text-xl font-semibold mb-4 text-teal-accent">How It Works</h2>
+            <div class="grid md:grid-cols-3 gap-4">
+                <div class="text-center">
+                    <div class="text-2xl mb-2">📷</div>
+                    <h3 class="font-semibold text-gray-heading">1. Face Registered</h3>
+                    <p class="text-sm text-gray-400">Your face is securely registered in our system</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl mb-2">🚌</div>
+                    <h3 class="font-semibold text-gray-heading">2. Board Shuttle</h3>
+                    <p class="text-sm text-gray-400">Simply look at the scanner when boarding</p>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl mb-2">💰</div>
+                    <h3 class="font-semibold text-gray-heading">3. Auto Payment</h3>
+                    <p class="text-sm text-gray-400">Fare automatically deducted from balance</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shuttle Dashboard - ShutterShuttle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'navy-dark': '#0F172A',
+                        'navy-light': '#1E293B',
+                        'teal-accent': '#2DD4BF',
+                        'teal-hover': '#14B8A6',
+                        'gray-text': '#CBD5E1',
+                        'gray-heading': '#F1F5F9',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-navy-dark text-gray-text min-h-screen">
+    <div class="container mx-auto p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-teal-accent">Shuttle Dashboard</h1>
+            <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-white transition">Logout</a>
+        </div>
+        
+        <div class="grid md:grid-cols-2 gap-6">
+            <div class="bg-navy-light p-6 rounded-lg border border-teal-accent/20">
+                <h2 class="text-xl font-semibold mb-4 text-teal-accent">Face Scanner</h2>
+                <p class="text-gray-text mb-4">Scan student faces to automatically deduct shuttle fare.</p>
+                <a href="{{ url_for('scan_page') }}" class="bg-teal-accent hover:bg-teal-hover px-4 py-2 rounded text-navy-dark font-semibold transition">Open Scanner</a>
+            </div>
+            
+            <div class="bg-navy-light p-6 rounded-lg border border-teal-accent/20">
+                <h2 class="text-xl font-semibold mb-4 text-teal-accent">Driver Info</h2>
+                <p class="text-gray-text"><strong>Email:</strong> {{ session.email }}</p>
+                <p class="text-gray-text"><strong>Role:</strong> Shuttle Driver</p>
+                <p class="text-gray-text mt-2">Approved driver account - scan faces to collect fare.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

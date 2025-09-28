@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - ShutterShuttle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'navy-dark': '#0F172A',
+                        'navy-light': '#1E293B',
+                        'teal-accent': '#2DD4BF',
+                        'teal-hover': '#14B8A6',
+                        'gray-text': '#CBD5E1',
+                        'gray-heading': '#F1F5F9',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-navy-dark text-gray-text min-h-screen">
+    <div class="container mx-auto p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-teal-accent">Admin Dashboard</h1>
+            <a href="{{ url_for('logout') }}" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-white transition">Logout</a>
+        </div>
+        
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="p-4 rounded-lg mb-4 {{ 'bg-green-900/20 border border-green-500/30 text-green-400' if category == 'success' else 'bg-red-900/20 border border-red-500/30 text-red-400' }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+        
+        <!-- Pending Approvals -->
+        <div class="bg-navy-light p-6 rounded-lg mb-6 border border-teal-accent/20">
+            <h2 class="text-xl font-semibold mb-4 text-teal-accent">Pending Access Requests</h2>
+            {% if pending_users %}
+                <div class="space-y-4">
+                    {% for user in pending_users %}
+                    <div class="bg-navy-dark p-4 rounded border border-gray-600">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-semibold text-gray-heading">{{ user.name }}</h3>
+                                <p class="text-sm text-gray-400">{{ user.email }} - {{ user.role.title() }}</p>
+                                <p class="text-sm mt-2 text-gray-text">{{ user.reason }}</p>
+                                <p class="text-xs text-gray-500 mt-1">Requested: {{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                            </div>
+                            <div class="space-x-2 flex">
+                                <a href="{{ url_for('approve_user', user_id=user.id) }}" 
+                                   class="bg-green-500 hover:bg-green-600 px-3 py-1 rounded text-sm text-white transition">Approve</a>
+                                <a href="{{ url_for('reject_user', user_id=user.id) }}" 
+                                   class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded text-sm text-white transition">Reject</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-400">No pending requests.</p>
+            {% endif %}
+        </div>
+        
+        <!-- Admin Actions -->
+        <div class="grid md:grid-cols-3 gap-6 mb-6">
+            <div class="bg-navy-light p-6 rounded-lg border border-teal-accent/20">
+                <h2 class="text-xl font-semibold mb-4 text-teal-accent">Student Management</h2>
+                <p class="text-gray-text mb-4">Register new students for face recognition system.</p>
+                <a href="{{ url_for('register') }}" class="bg-teal-accent hover:bg-teal-hover px-4 py-2 rounded text-navy-dark font-semibold transition">Register Student</a>
+            </div>
+            
+            <div class="bg-navy-light p-6 rounded-lg border border-teal-accent/20">
+                <h2 class="text-xl font-semibold mb-4 text-teal-accent">System Overview</h2>
+                <div class="space-y-2">
+                    <p class="text-gray-text">Total Students: <span class="text-teal-accent font-semibold">{{ students|length }}</span></p>
+                    <p class="text-gray-text">Active Drivers: <span class="text-teal-accent font-semibold">{{ approved_drivers|length }}</span></p>
+                    <p class="text-gray-text">Pending Approvals: <span class="text-yellow-400 font-semibold">{{ pending_users|length }}</span></p>
+                </div>
+            </div>
+
+            <div class="bg-navy-light p-6 rounded-lg border border-teal-accent/20">
+                <h2 class="text-xl font-semibold mb-4 text-teal-accent">Quick Stats</h2>
+                <div class="space-y-2">
+                    <p class="text-gray-text">Recent Transactions: <span class="text-teal-accent font-semibold">{{ transactions|length }}</span></p>
+                    <p class="text-gray-text">Total Balance: <span class="text-green-400 font-semibold">₹{{ students|sum(attribute='balance') or 0 }}</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Approved Drivers Management -->
+        {% if approved_drivers %}
+        <div class="bg-navy-light p-6 rounded-lg mb-6 border border-teal-accent/20">
+            <h2 class="text-xl font-semibold mb-4 text-teal-accent">Active Shuttle Drivers</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-600">
+                            <th class="text-left p-2">Name</th>
+                            <th class="text-left p-2">Email</th>
+                            <th class="text-left p-2">Joined</th>
+                            <th class="text-left p-2">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for driver in approved_drivers %}
+                        <tr class="border-b border-gray-700">
+                            <td class="p-2">{{ driver.name }}</td>
+                            <td class="p-2">{{ driver.email }}</td>
+                            <td class="p-2 text-gray-400">{{ driver.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td class="p-2">
+                                <form method="POST" action="{{ url_for('delete_driver', user_id=driver.id) }}" 
+                                      onsubmit="return confirm('Are you sure you want to remove driver {{ driver.name }}? They will lose access immediately.')" style="display:inline;">
+                                    <button type="submit" class="bg-red-500 hover:bg-red-600 px-2 py-1 rounded text-xs text-white transition">
+                                        Remove Driver
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Students List with Delete Option -->
+        {% if students %}
+        <div class="bg-navy-light p-6 rounded-lg mb-6 border border-teal-accent/20">
+            <h2 class="text-xl font-semibold mb-4 text-teal-accent">Registered Students</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-600">
+                            <th class="text-left p-2">Name</th>
+                            <th class="text-left p-2">Registration</th>
+                            <th class="text-left p-2">Balance</th>
+                            <th class="text-left p-2">Email</th>
+                            <th class="text-left p-2">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr class="border-b border-gray-700">
+                            <td class="p-2">{{ student.name }}</td>
+                            <td class="p-2">{{ student.registration }}</td>
+                            <td class="p-2 text-teal-accent">₹{{ student.balance }}</td>
+                            <td class="p-2 text-gray-400">{{ student.email or 'N/A' }}</td>
+                            <td class="p-2">
+                                <form method="POST" action="{{ url_for('delete_student', student_id=student.id) }}" 
+                                      onsubmit="return confirm('Are you sure you want to delete {{ student.name }}? This will permanently delete all their data and transactions.')" style="display:inline;">
+                                    <button type="submit" class="bg-red-500 hover:bg-red-600 px-2 py-1 rounded text-xs text-white transition">
+                                        Delete Student
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Recent Transactions -->
+        {% if transactions %}
+        <div class="bg-navy-light p-6 rounded-lg border border-teal-accent/20">
+            <h2 class="text-xl font-semibold mb-4 text-teal-accent">Recent Transactions</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-600">
+                            <th class="text-left p-2">Student</th>
+                            <th class="text-left p-2">Amount</th>
+                            <th class="text-left p-2">Type</th>
+                            <th class="text-left p-2">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for txn in transactions %}
+                        <tr class="border-b border-gray-700">
+                            <td class="p-2">{{ txn.name }}</td>
+                            <td class="p-2 {{ 'text-red-400' if txn.amount < 0 else 'text-green-400' }}">₹{{ txn.amount }}</td>
+                            <td class="p-2">{{ txn.transaction_type.replace('_', ' ').title() }}</td>
+                            <td class="p-2 text-gray-400">{{ txn.timestamp }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

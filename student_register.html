@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Registration - ShutterShuttle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'navy-dark': '#0F172A',
+                        'navy-light': '#1E293B',
+                        'teal-accent': '#2DD4BF',
+                        'teal-hover': '#14B8A6',
+                        'gray-text': '#CBD5E1',
+                        'gray-heading': '#F1F5F9',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-navy-dark text-gray-text min-h-screen">
+    <div class="container mx-auto p-6 max-w-2xl">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-teal-accent">Student Registration</h1>
+            <a href="/" class="bg-gray-500 hover:bg-gray-600 px-4 py-2 rounded text-white transition">← Back to Login</a>
+        </div>
+        
+        {% if error %}
+        <div class="p-4 rounded-lg mb-4 bg-red-900/20 border border-red-500/30 text-red-400">
+            {{ error }}
+        </div>
+        {% endif %}
+        
+        <div class="bg-navy-light p-8 rounded-lg border border-teal-accent/20">
+            <form method="POST" enctype="multipart/form-data" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-text mb-2">Full Name *</label>
+                    <input name="name" type="text" required
+                           class="w-full p-3 bg-navy-dark border border-gray-600 rounded text-gray-text focus:outline-none focus:ring-teal-accent focus:border-teal-accent"
+                           placeholder="Enter your full name">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-text mb-2">Email Address *</label>
+                    <input name="email" type="email" required
+                           class="w-full p-3 bg-navy-dark border border-gray-600 rounded text-gray-text focus:outline-none focus:ring-teal-accent focus:border-teal-accent"
+                           placeholder="Enter your email">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-text mb-2">Password *</label>
+                    <input name="password" type="password" required
+                           class="w-full p-3 bg-navy-dark border border-gray-600 rounded text-gray-text focus:outline-none focus:ring-teal-accent focus:border-teal-accent"
+                           placeholder="Create a password">
+                </div>
+                
+                <!-- Camera Section -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-text mb-2">Face Photo *</label>
+                    <div class="grid md:grid-cols-2 gap-4 mb-4">
+                        <div class="rounded-lg overflow-hidden border border-gray-600">
+                            <video id="camera" autoplay playsinline muted class="w-full h-48 object-cover bg-black"></video>
+                        </div>
+                        <div class="rounded-lg overflow-hidden border border-gray-600">
+                            <canvas id="snapshot" class="w-full h-48 bg-navy-dark"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-3 mb-4">
+                        <button type="button" id="startCam" class="px-4 py-2 bg-teal-accent text-navy-dark rounded font-semibold hover:bg-teal-hover transition">
+                            Start Camera
+                        </button>
+                        <button type="button" id="capture" class="px-4 py-2 border border-gray-600 text-gray-text rounded hover:text-teal-accent hover:border-teal-accent transition">
+                            Capture Photo
+                        </button>
+                    </div>
+                    
+                    <input name="photo_data" id="photo_data" type="hidden">
+                    
+                    <div class="text-center">
+                        <span class="text-gray-400 text-sm">OR</span>
+                    </div>
+                    
+                    <input name="photo" type="file" accept="image/*" class="w-full p-3 bg-navy-dark border border-gray-600 rounded text-gray-text focus:outline-none focus:ring-teal-accent focus:border-teal-accent mt-2">
+                    <p class="text-sm text-gray-400 mt-1">Upload a clear photo of your face or use camera above</p>
+                </div>
+                
+                <button type="submit" class="w-full bg-teal-accent text-navy-dark font-semibold py-3 rounded hover:bg-teal-hover transition">
+                    Register Account
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('startCam');
+        const captureBtn = document.getElementById('capture');
+        const video = document.getElementById('camera');
+        const canvas = document.getElementById('snapshot');
+        const hiddenPhoto = document.getElementById('photo_data');
+
+        let stream = null;
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+                });
+                video.srcObject = stream;
+                startBtn.textContent = 'Camera Active';
+                startBtn.disabled = true;
+            } catch (e) {
+                alert('Camera access denied: ' + e.message);
+            }
+        });
+
+        captureBtn.addEventListener('click', () => {
+            if (!video.srcObject) {
+                alert('Start camera first');
+                return;
+            }
+            
+            const w = video.videoWidth || 640;
+            const h = video.videoHeight || 480;
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+            
+            const dataURL = canvas.toDataURL('image/jpeg', 0.9);
+            hiddenPhoto.value = dataURL;
+            
+            captureBtn.textContent = 'Photo Captured ✓';
+            captureBtn.disabled = true;
+        });
+    </script>
+</body>
+</html>
