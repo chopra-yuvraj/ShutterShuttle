@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShutterShuttle - Face Recognition Campus Transit</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'navy-dark': '#0F172A',
+                        'navy-light': '#1E293B',
+                        'teal-accent': '#2DD4BF',
+                        'teal-hover': '#14B8A6',
+                        'gray-text': '#CBD5E1',
+                        'gray-heading': '#F1F5F9',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .form-section { display: none; }
+    </style>
+</head>
+
+<body class="bg-navy-dark text-gray-text antialiased">
+    <header class="shadow-xl bg-navy-light sticky top-0 z-50 border-b border-teal-accent/20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex justify-start">
+                    <a href="/" class="flex items-center space-x-2">
+                        <span class="text-3xl font-extrabold text-gray-heading">ShutterShuttle</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="min-h-[70vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+            <div class="max-w-md w-full space-y-8 bg-navy-light p-8 rounded-2xl shadow-2xl border border-teal-accent/20">
+                
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="p-4 rounded-lg mb-4 {{ 'bg-green-900/20 border border-green-500/30 text-green-400' if category == 'success' else 'bg-red-900/20 border border-red-500/30 text-red-400' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                <!-- Role Selection -->
+                <div id="role-selection">
+                    <div class="text-center">
+                        <h2 class="text-3xl font-extrabold text-gray-heading">Welcome to ShutterShuttle!</h2>
+                        <p class="mt-2 text-gray-text">Please select your role to continue.</p>
+                    </div>
+                    <div class="mt-8 space-y-4">
+                        <button onclick="showForm('student')" class="w-full py-3 px-4 border border-transparent text-sm font-bold rounded-full text-navy-dark bg-teal-accent hover:bg-teal-hover transition">
+                            I am a Student
+                        </button>
+                        <button onclick="showForm('shuttle')" class="w-full py-3 px-4 border border-gray-text text-sm font-bold rounded-full text-gray-heading hover:bg-navy-dark transition">
+                            I am a Shuttle Driver
+                        </button>
+                        <button onclick="showForm('admin')" class="w-full py-3 px-4 border border-gray-text text-sm font-bold rounded-full text-gray-heading hover:bg-navy-dark transition">
+                            I am an Admin
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Student Form -->
+                <div id="student-form" class="form-section">
+                    <div class="text-center">
+                        <h2 class="text-3xl font-extrabold text-gray-heading">Student Portal</h2>
+                        <p class="mt-2 text-gray-text">Sign in to existing account.</p>
+                    </div>
+                    <form class="mt-8 space-y-6" action="{{ url_for('student_auth') }}" method="POST">
+                        <div class="rounded-md shadow-sm -space-y-px">
+                            <input name="email" type="email" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-600 bg-navy-dark placeholder-gray-500 text-gray-text rounded-t-md focus:outline-none focus:ring-teal-accent focus:border-teal-accent sm:text-sm" placeholder="Email address">
+                            <input name="password" type="password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-600 bg-navy-dark placeholder-gray-500 text-gray-text rounded-b-md focus:outline-none focus:ring-teal-accent focus:border-teal-accent sm:text-sm" placeholder="Password">
+                        </div>
+                        <button type="submit" class="w-full py-2 px-4 border border-transparent text-sm font-bold rounded-full text-navy-dark bg-teal-accent hover:bg-teal-hover transition">
+                            Sign In
+                        </button>
+                        <div class="text-sm text-center">
+                            <a href="{{ url_for('student_register') }}" class="font-medium text-teal-accent hover:text-teal-hover">
+                                New Student? Register Here
+                            </a>
+                        </div>
+                        <div class="text-center">
+                            <button type="button" onclick="showRoleSelection()" class="font-medium text-teal-accent hover:text-teal-hover text-sm">← Back to roles</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Shuttle Form -->
+                <div id="shuttle-form" class="form-section">
+                    <div class="text-center">
+                        <h2 class="text-3xl font-extrabold text-gray-heading">Shuttle Portal</h2>
+                        <p class="mt-2 text-gray-text">Log in to your approved account.</p>
+                    </div>
+                    <form class="mt-8 space-y-6" action="{{ url_for('login') }}" method="POST">
+                        <input type="hidden" name="role" value="shuttle">
+                        <div class="rounded-md shadow-sm -space-y-px">
+                            <input name="email" type="email" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-600 bg-navy-dark placeholder-gray-500 text-gray-text rounded-t-md focus:outline-none focus:ring-teal-accent focus:border-teal-accent sm:text-sm" placeholder="Email address">
+                            <input name="password" type="password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-600 bg-navy-dark placeholder-gray-500 text-gray-text rounded-b-md focus:outline-none focus:ring-teal-accent focus:border-teal-accent sm:text-sm" placeholder="Password">
+                        </div>
+                        <button type="submit" class="w-full py-2 px-4 border border-transparent text-sm font-bold rounded-full text-navy-dark bg-teal-accent hover:bg-teal-hover transition">
+                            Sign In
+                        </button>
+                        <div class="text-sm text-center">
+                            <button type="button" onclick="showRequestForm('shuttle')" class="font-medium text-teal-accent hover:text-teal-hover">
+                                New Driver? Request Access
+                            </button>
+                        </div>
+                        <div class="text-center">
+                            <button type="button" onclick="showRoleSelection()" class="font-medium text-teal-accent hover:text-teal-hover text-sm">← Back to roles</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Admin Form -->
+                <div id="admin-form" class="form-section">
+                    <div class="text-center">
+                        <h2 class="text-3xl font-extrabold text-gray-heading">Admin Portal</h2>
+                        <p class="mt-2 text-gray-text">Log in to your approved account.</p>
+                    </div>
+                    <form class="mt-8 space-y-6" action="{{ url_for('login') }}" method="POST">
+                        <input type="hidden" name="role" value="admin">
+                        <div class="rounded-md shadow-sm -space-y-px">
+                            <input name="email" type="email" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-600 bg-navy-dark placeholder-gray-500 text-gray-text rounded-t-md focus:outline-none focus:ring-teal-accent focus:border-teal-accent sm:text-sm" placeholder="Email address">
+                            <input name="password" type="password" required class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-600 bg-navy-dark placeholder-gray-500 text-gray-text rounded-b-md focus:outline-none focus:ring-teal-accent focus:border-teal-accent sm:text-sm" placeholder="Password">
+                        </div>
+                        <button type="submit" class="w-full py-2 px-4 border border-transparent text-sm font-bold rounded-full text-navy-dark bg-teal-accent hover:bg-teal-hover transition">
+                            Sign In
+                        </button>
+                        <div class="text-sm text-center">
+                            <button type="button" onclick="showRequestForm('admin')" class="font-medium text-teal-accent hover:text-teal-hover">
+                                New Admin? Request Access
+                            </button>
+                        </div>
+                        <div class="text-center">
+                            <button type="button" onclick="showRoleSelection()" class="font-medium text-teal-accent hover:text-teal-hover text-sm">← Back to roles</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Request Access Form -->
+                <div id="request-form" class="form-section">
+                    <div class="text-center">
+                        <h2 class="text-3xl font-extrabold text-gray-heading">Request Access</h2>
+                        <p class="mt-2 text-gray-text">Submit your details for admin approval.</p>
+                    </div>
+                    <form class="mt-8 space-y-6" action="{{ url_for('request_access') }}" method="POST">
+                        <input type="hidden" id="request-role" name="role" value="">
+                        <div class="space-y-4">
+                            <input name="name" type="text" required class="appearance-none relative block w-full px-3 py-2 border border-gray-600 bg-navy-dark placeholder-gray-500 text-gray-text rounded-md focus:outline-none focus:ring-teal-accent focus:border-teal-accent sm:text-sm" placeholder="Full Name">
+                            <input name="email" type="email" required class="appearance-none relative block w-full px-3 py-2 border border-gray-600 bg-navy-dark placeholder-gray-500 text-gray-text rounded-md focus:outline-none focus:ring-teal-accent focus:border-teal-accent sm:text-sm" placeholder="Email address">
+                            <input name="password" type="password" required class="appearance-none relative block w-full px-3 py-2 border border-gray-600 bg-navy-dark placeholder-gray-500 text-gray-text rounded-md focus:outline-none focus:ring-teal-accent focus:border-teal-accent sm:text-sm" placeholder="Password">
+                            <textarea name="reason" rows="3" class="appearance-none relative block w-full px-3 py-2 border border-gray-600 bg-navy-dark placeholder-gray-500 text-gray-text rounded-md focus:outline-none focus:ring-teal-accent focus:border-teal-accent sm:text-sm" placeholder="Reason for access request"></textarea>
+                        </div>
+                        <button type="submit" class="w-full py-2 px-4 border border-transparent text-sm font-bold rounded-full text-navy-dark bg-teal-accent hover:bg-teal-hover transition">
+                            Submit Request
+                        </button>
+                        <div class="text-center">
+                            <button type="button" onclick="showRoleSelection()" class="font-medium text-teal-accent hover:text-teal-hover text-sm">← Back to roles</button>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </section>
+
+        <script>
+            const roleSelection = document.getElementById('role-selection');
+            const studentForm = document.getElementById('student-form');
+            const shuttleForm = document.getElementById('shuttle-form');
+            const adminForm = document.getElementById('admin-form');
+            const requestForm = document.getElementById('request-form');
+
+            function showForm(role) {
+                hideAllForms();
+                roleSelection.style.display = 'none';
+                if (role === 'student') {
+                    studentForm.style.display = 'block';
+                } else if (role === 'shuttle') {
+                    shuttleForm.style.display = 'block';
+                } else if (role === 'admin') {
+                    adminForm.style.display = 'block';
+                }
+            }
+
+            function showRequestForm(role) {
+                hideAllForms();
+                document.getElementById('request-role').value = role;
+                requestForm.style.display = 'block';
+            }
+
+            function showRoleSelection() {
+                hideAllForms();
+                roleSelection.style.display = 'block';
+            }
+
+            function hideAllForms() {
+                studentForm.style.display = 'none';
+                shuttleForm.style.display = 'none';
+                adminForm.style.display = 'none';
+                requestForm.style.display = 'none';
+            }
+        </script>
+
+        <div class="bg-navy-light py-10 my-10">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap justify-center gap-8">
+                <div class="bg-navy-dark p-6 rounded-xl text-center min-w-[220px] shadow-lg border border-teal-accent/20">
+                    <h4 class="text-3xl font-extrabold text-teal-accent">{{ total_students or 0 }}</h4>
+                    <p class="mt-2 text-gray-text">Registered Students</p>
+                </div>
+                <div class="bg-navy-dark p-6 rounded-xl text-center min-w-[220px] shadow-lg border border-teal-accent/20">
+                    <h4 class="text-3xl font-extrabold text-teal-accent">₹{{ total_balance or 0 }}</h4>
+                    <p class="mt-2 text-gray-text">Total Wallet Balance</p>
+                </div>
+                <div class="bg-navy-dark p-6 rounded-xl text-center min-w-[220px] shadow-lg border border-teal-accent/20">
+                    <h4 class="text-3xl font-extrabold text-teal-accent">{{ total_transactions or 0 }}</h4>
+                    <p class="mt-2 text-gray-text">Total Rides</p>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
