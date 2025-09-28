@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Student - ShutterShuttle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'navy-dark': '#0F172A',
+                        'navy-light': '#1E293B',
+                        'teal-accent': '#2DD4BF',
+                        'teal-hover': '#14B8A6',
+                        'gray-text': '#CBD5E1',
+                        'gray-heading': '#F1F5F9',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-navy-dark text-gray-text min-h-screen">
+    <div class="container mx-auto p-6 max-w-2xl">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-teal-accent">Register Student</h1>
+            <a href="{{ url_for('admin_dashboard') }}" class="bg-gray-500 hover:bg-gray-600 px-4 py-2 rounded text-white transition">← Back</a>
+        </div>
+        
+        {% if error %}
+        <div class="p-4 rounded-lg mb-4 bg-red-900/20 border border-red-500/30 text-red-400">
+            {{ error }}
+        </div>
+        {% endif %}
+        
+        <div class="bg-navy-light p-8 rounded-lg border border-teal-accent/20">
+            <form method="POST" enctype="multipart/form-data" class="space-y-6">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-text mb-2">Full Name</label>
+                        <input name="name" type="text" required
+                               class="w-full p-3 bg-navy-dark border border-gray-600 rounded text-gray-text focus:outline-none focus:ring-teal-accent focus:border-teal-accent">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-text mb-2">Registration Number</label>
+                        <input name="registration" type="text" required
+                               class="w-full p-3 bg-navy-dark border border-gray-600 rounded text-gray-text focus:outline-none focus:ring-teal-accent focus:border-teal-accent">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-text mb-2">Initial Balance (₹)</label>
+                    <input name="balance" type="number" min="0" value="100"
+                           class="w-full p-3 bg-navy-dark border border-gray-600 rounded text-gray-text focus:outline-none focus:ring-teal-accent focus:border-teal-accent">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-text mb-2">Photo Upload</label>
+                    <input name="photo" type="file" accept="image/*"
+                           class="w-full p-3 bg-navy-dark border border-gray-600 rounded text-gray-text focus:outline-none focus:ring-teal-accent focus:border-teal-accent">
+                    <p class="text-sm text-gray-400 mt-1">Upload a clear photo of the student's face</p>
+                </div>
+                
+                <button type="submit" class="w-full bg-teal-accent text-navy-dark font-semibold py-3 rounded hover:bg-teal-hover transition">
+                    Register Student
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
