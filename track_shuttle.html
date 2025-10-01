@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live VIT Shuttle Tracking - ShutterShuttle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'navy-dark': '#0F172A',
+                        'navy-light': '#1E293B',
+                        'teal-accent': '#2DD4BF',
+                        'teal-hover': '#14B8A6',
+                        'gray-text': '#CBD5E1',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-navy-dark text-gray-text">
+    <div class="container mx-auto p-6">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <h1 class="text-3xl font-bold text-teal-accent">VIT Shuttle Live Tracking</h1>
+            <div class="flex space-x-2">
+                <a href="/" class="bg-gray-500 hover:bg-gray-600 px-4 py-2 rounded text-white transition text-sm">
+                    Home
+                </a>
+                <button onclick="startShuttle()" 
+                        class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-semibold transition text-sm">
+                    Start Shuttle
+                </button>
+                <button onclick="simulateMovement()" 
+                        class="bg-teal-accent hover:bg-teal-hover text-navy-dark px-4 py-2 rounded font-semibold transition text-sm">
+                    Move Shuttle
+                </button>
+            </div>
+        </div>
+
+        <!-- Location Selector -->
+        <div class="bg-navy-light p-6 rounded-lg border border-teal-accent/20 mb-6">
+            <h3 class="text-lg font-semibold text-gray-text mb-4">Select Your Location for ETA Calculation:</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                {% for key, location in student_locations.items() %}
+                <button onclick="selectUserLocation('{{ key }}')" 
+                        class="bg-gray-600 hover:bg-teal-accent hover:text-navy-dark px-3 py-2 rounded text-xs transition location-btn"
+                        data-location="{{ key }}">
+                    {{ location.name }}
+                </button>
+                {% endfor %}
+            </div>
+            <div class="mt-4 p-3 bg-navy-dark rounded">
+                <div class="text-sm">
+                    <span class="text-gray-text">Selected Location: </span>
+                    <span id="selected-location" class="text-teal-accent font-semibold">None</span>
+                </div>
+                <div class="text-sm">
+                    <span class="text-gray-text">ETA to You: </span>
+                    <span id="user-eta" class="text-green-400 font-bold text-lg">-- minutes</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shuttle Status -->
+        <div class="bg-navy-light p-6 rounded-lg border border-teal-accent/20 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+                <div class="bg-navy-dark p-4 rounded-lg">
+                    <div class="text-2xl font-bold text-teal-accent" id="route-progress">0/57</div>
+                    <div class="text-sm text-gray-text">Route Progress</div>
+                </div>
+                <div class="bg-navy-dark p-4 rounded-lg">
+                    <div class="text-lg font-semibold" id="status-display">Loading...</div>
+                    <div class="text-sm text-gray-text">Status</div>
+                </div>
+                <div class="bg-navy-dark p-4 rounded-lg">
+                    <div class="text-lg font-semibold text-blue-400" id="current-location">Main Gate</div>
+                    <div class="text-sm text-gray-text">Current Area</div>
+                </div>
+                <div class="bg-navy-dark p-4 rounded-lg">
+                    <div class="text-sm text-gray-400" id="last-updated">--</div>
+                    <div class="text-sm text-gray-text">Last Updated</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map Container -->
+        <div class="bg-navy-light p-4 rounded-lg border border-teal-accent/20 mb-6">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-lg font-semibold text-gray-text">VIT Vellore Campus Map</h3>
+                <div class="flex space-x-2">
+                    <button onclick="centerOnShuttle()" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs">
+                        Find Shuttle
+                    </button>
+                    <button onclick="toggleRoute()" 
+                            class="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-xs">
+                        Toggle Route
+                    </button>
+                </div>
+            </div>
+            <div id="map" class="w-full h-96 rounded border border-gray-600"></div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="grid md:grid-cols-2 gap-6">
+            <div class="bg-blue-900/20 border border-blue-500/30 p-4 rounded text-blue-200">
+                <h3 class="font-bold mb-3">How to Use:</h3>
+                <div class="text-sm space-y-1">
+                    <div>1. Click "Start Shuttle" to begin simulation</div>
+                    <div>2. Select your location from buttons above</div>
+                    <div>3. Click "Move Shuttle" to advance shuttle position</div>
+                    <div>4. Watch your ETA update in real-time</div>
+                    <div>5. Blue marker shows shuttle, red shows your location</div>
+                </div>
+            </div>
+
+            <div class="bg-green-900/20 border border-green-500/30 p-4 rounded text-green-200">
+                <h3 class="font-bold mb-3">Coverage Areas:</h3>
+                <div class="text-sm space-y-1">
+                    <div><strong>Academic:</strong> MB, GDN, CDMM, SMV, CBMR, TT, SJT, Gandhi</div>
+                    <div><strong>Boys Hostels:</strong> A, B, C, D, E, F, G, H, J, K, L, M, N, P, Q</div>
+                    <div><strong>Girls Hostels:</strong> A, B, C, D, E, F</div>
+                    <div><strong>Facilities:</strong> Sports, Food Courts, Medical, Auditorium</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let shuttleMarker;
+        let userMarker;
+        let routeLine;
+        let routeVisible = true;
+        let selectedUserLocation = null;
+        let shuttleRunning = false;
+        const studentLocations = JSON.parse('{{ student_locations | tojson | safe }}');
+        
+        // VIT Route data (matching server.py)
+        const VIT_ROUTE = [
+            [12.9692, 79.1559], [12.9698, 79.1565], [12.9705, 79.1571], [12.9710, 79.1577], [12.9715, 79.1583],
+            [12.9720, 79.1590], [12.9725, 79.1596], [12.9730, 79.1602], [12.9735, 79.1608], [12.9740, 79.1614],
+            [12.9745, 79.1620], [12.9750, 79.1626], [12.9755, 79.1632], [12.9760, 79.1638], [12.9765, 79.1644],
+            [12.9770, 79.1650], [12.9775, 79.1656], [12.9780, 79.1662], [12.9785, 79.1668], [12.9790, 79.1674],
+            [12.9795, 79.1680], [12.9800, 79.1686], [12.9805, 79.1692], [12.9810, 79.1698], [12.9815, 79.1704],
+            [12.9820, 79.1710], [12.9825, 79.1716], [12.9830, 79.1722], [12.9835, 79.1728], [12.9840, 79.1734],
+            [12.9835, 79.1740], [12.9830, 79.1746], [12.9825, 79.1752], [12.9820, 79.1758], [12.9815, 79.1764],
+            [12.9810, 79.1770], [12.9805, 79.1776], [12.9800, 79.1782], [12.9795, 79.1788], [12.9790, 79.1794],
+            [12.9785, 79.1800], [12.9780, 79.1806], [12.9775, 79.1812], [12.9770, 79.1805], [12.9765, 79.1798],
+            [12.9760, 79.1791], [12.9755, 79.1784], [12.9750, 79.1777], [12.9745, 79.1770], [12.9740, 79.1763],
+            [12.9735, 79.1756], [12.9730, 79.1749], [12.9725, 79.1742], [12.9720, 79.1735], [12.9715, 79.1728],
+            [12.9710, 79.1721], [12.9705, 79.1714], [12.9700, 79.1707], [12.9695, 79.1700], [12.9692, 79.1559]
+        ];
+
+        const LOCATION_NAMES = [
+            'Main Gate', 'Security', 'Admin', 'MB Block', 'GDN Block', 'CDMM', 'SMV', 'CBMR', 'Tech Tower', 'SJT',
+            'Library', 'Gandhi', 'Sports', 'Pool', 'Stadium', 'A Block', 'B Block', 'C Block', 'D Block', 'E Block',
+            'F Block', 'G Block', 'H Block', 'J Block', 'K Block', 'L Block', 'M Block', 'N Block', 'P Block', 'Q Block',
+            'Ladies A', 'Ladies B', 'Ladies C', 'Ladies D', 'Ladies E', 'Ladies F', 'Food Court', 'Cafeteria', 'Shopping',
+            'Auditorium', 'Conference', 'Health', 'Medical', 'East Facility', 'Research', 'Labs', 'Workshop', 'Plaza',
+            'Student Service', 'Academic Support', 'Faculty', 'Admin Return', 'Campus Center', 'Academic Return', 'Library Return',
+            'Academic Main', 'Central Return', 'Gate Area', 'Gate Approach'
+        ];
+        
+        function initMap() {
+            map = L.map('map').setView([12.9780, 79.1680], 15);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors | VIT Shuttle Tracking',
+                maxZoom: 19
+            }).addTo(map);
+            
+            drawRoute();
+            startShuttle();
+        }
+        
+        function drawRoute() {
+            if (routeLine) {
+                map.removeLayer(routeLine);
+            }
+            
+            routeLine = L.polyline(VIT_ROUTE, {
+                color: '#2DD4BF',
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '5, 10'
+            }).addTo(map);
+            
+            routeLine.bindPopup('VIT Campus Shuttle Route - 57 stops covering entire campus');
+        }
+        
+        function startShuttle() {
+            fetch('/start_shuttle')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        shuttleRunning = true;
+                        document.getElementById('status-display').innerHTML = 'Started';
+                        updateShuttleLocation();
+                        // Auto-simulate every 3 seconds for demo
+                        setInterval(simulateMovement, 3000);
+                    }
+                })
+                .catch(error => {
+                    console.error('Start error:', error);
+                    document.getElementById('status-display').innerHTML = 'Start Failed';
+                });
+        }
+        
+        function updateShuttleLocation() {
+            fetch('/location/shuttle_01')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('status-display').innerHTML = 'Error: ' + data.error;
+                        return;
+                    }
+                    
+                    const lat = data.latitude;
+                    const lng = data.longitude;
+                    
+                    // Update shuttle marker
+                    if (shuttleMarker) {
+                        shuttleMarker.setLatLng([lat, lng]);
+                    } else {
+                        shuttleMarker = L.marker([lat, lng], {
+                            icon: L.icon({
+                                iconUrl: `data:image/svg+xml;base64,${btoa(`
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30">
+                                        <circle cx="15" cy="15" r="12" fill="blue" stroke="white" stroke-width="3"/>
+                                        <rect x="8" y="10" width="14" height="8" fill="white" rx="2"/>
+                                        <text x="15" y="16" font-family="Arial" font-size="8" fill="blue" text-anchor="middle">BUS</text>
+                                    </svg>
+                                `)}`,
+                                iconSize: [30, 30],
+                                iconAnchor: [15, 15]
+                            }),
+                            zIndexOffset: 1000
+                        }).addTo(map);
+                        
+                        shuttleMarker.bindPopup('VIT Campus Shuttle - Live Location');
+                    }
+                    
+                    // Update current location name
+                    const currentIndex = findClosestRouteIndex([lat, lng]);
+                    document.getElementById('current-location').textContent = LOCATION_NAMES[currentIndex] || 'Unknown';
+                    document.getElementById('route-progress').textContent = `${currentIndex + 1}/${VIT_ROUTE.length}`;
+                    document.getElementById('status-display').innerHTML = 'Running';
+                    document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+                    
+                    // Update user ETA if location selected
+                    if (selectedUserLocation) {
+                        calculateUserETA();
+                    }
+                    
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('status-display').innerHTML = 'Connection Error';
+                });
+        }
+        
+        function simulateMovement() {
+            if (!shuttleRunning) return;
+            
+            fetch('/location/simulate')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateShuttleLocation();
+                    }
+                })
+                .catch(error => console.error('Simulation error:', error));
+        }
+        
+        function selectUserLocation(locationKey) {
+            selectedUserLocation = locationKey;
+            
+            // Update button styles
+            document.querySelectorAll('.location-btn').forEach(btn => {
+                btn.classList.remove('bg-teal-accent', 'text-navy-dark');
+                btn.classList.add('bg-gray-600', 'hover:bg-teal-accent');
+            });
+            
+            const selectedBtn = document.querySelector(`[data-location="${locationKey}"]`);
+            selectedBtn.classList.add('bg-teal-accent', 'text-navy-dark');
+            
+            // Update location display
+            document.getElementById('selected-location').textContent = studentLocations[locationKey].name;
+            
+            // Add/update user marker on map
+            const userCoords = studentLocations[locationKey].coords;
+            if (userMarker) {
+                userMarker.setLatLng(userCoords);
+                userMarker.setLatLng(userCoords);
+            } else {
+                userMarker = L.marker(userCoords, {
+                    icon: L.icon({
+                        iconUrl: `data:image/svg+xml;base64,${btoa(`
+                            <svg xmlns="http://www.w3.org/2000/svg" width="25" height="25" viewBox="0 0 25 25">
+                                <circle cx="12.5" cy="12.5" r="10" fill="red" stroke="white" stroke-width="2"/>
+                                <circle cx="12.5" cy="12.5" r="4" fill="white"/>
+                            </svg>
+                        `)}`,
+                        iconSize: [25, 25],
+                        iconAnchor: [12.5, 12.5]
+                    })
+                }).addTo(map);
+            }
+            
+            userMarker.bindPopup(`Your Location: ${studentLocations[locationKey].name}`).openPopup();
+            
+            // Calculate initial ETA
+            calculateUserETA();
+        }
+        
+        function calculateUserETA() {
+            if (!selectedUserLocation) return;
+            
+            fetch('/calculate_eta', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({location: selectedUserLocation})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.eta_minutes) {
+                    document.getElementById('user-eta').textContent = `${data.eta_minutes} minutes`;
+                }
+            })
+            .catch(error => console.error('ETA calculation error:', error));
+        }
+        
+        function findClosestRouteIndex(currentPos) {
+            let minDistance = Infinity;
+            let closestIndex = 0;
+            
+            VIT_ROUTE.forEach((point, index) => {
+                const distance = Math.sqrt(
+                    Math.pow(point[0] - currentPos[0], 2) + Math.pow(point[1] - currentPos[1], 2)
+                );
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestIndex = index;
+                }
+            });
+            
+            return closestIndex;
+        }
+        
+        function centerOnShuttle() {
+            if (shuttleMarker) {
+                map.setView(shuttleMarker.getLatLng(), 17);
+                shuttleMarker.openPopup();
+            }
+        }
+        
+        function toggleRoute() {
+            if (routeVisible) {
+                map.removeLayer(routeLine);
+                routeVisible = false;
+            } else {
+                drawRoute();
+                routeVisible = true;
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initMap);
+    </script>
+</body>
+</html>
