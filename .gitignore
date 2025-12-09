@@ -45,44 +45,18 @@ MANIFEST
 
 # OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Environment files (CRITICAL - NEVER COMMIT)
+# Environment
 .env
 .env.local
-.env.*.local
-.env.production
 
-# Testing
+# Cache and logs
 .pytest_cache/
-.coverage
-htmlcov/
-.tox/
-
-# Flask
-instance/
-.webassets-cache
-
-# Face encoding cache
 *.pkl
 *.pickle
-
-# Logs
 *.log
-logs/
 
-# Node (if using any frontend build tools)
-node_modules/
-npm-debug.log
-
-# IDEs
-*.iml
-.gradle
-.classpath
-.project
-.settings/
+# Project specific
+shuttle_auth.db
+shuttle.db
