@@ -2,6 +2,7 @@ services:
   - type: web
     name: shuttershuttle
     env: python
+    pythonVersion: 3.11
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn server:app
