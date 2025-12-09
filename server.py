@@ -13,77 +13,111 @@ import numpy as np
 from PIL import Image
 import time
 import math
+from dotenv import load_dotenv
 
-app = Flask(__name__, template_folder=".", static_folder=".")
-app.secret_key = "your-super-secret-key-change-this-in-production"
+# Load environment variables from .env file
+load_dotenv()
 
-# Database configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///shuttle_auth.db'
+app = Flask(__name__, template_folder=".", static_folder="static")
+
+# ===== ENVIRONMENT CONFIGURATION =====
+ENV = os.environ.get('FLASK_ENV', 'development')
+app.config['ENV'] = ENV
+
+# Secret key - use environment variable or generate random for development
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
+
+# ===== DATABASE CONFIGURATION =====
+# Supports both SQLite (development) and PostgreSQL (production)
+if ENV == 'production':
+    # Production: Use PostgreSQL from Render
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    
+    # Fix Render's postgres:// URL scheme to postgresql://
+    if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
+        DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+    
+    if not DATABASE_URL:
+        raise ValueError("DATABASE_URL environment variable not set for production")
+    
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+else:
+    # Development: Use SQLite with absolute path
+    BASEDIR = os.path.abspath(os.path.dirname(__file__))
+    DB_PATH = os.path.join(BASEDIR, 'shuttle_auth.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DB_PATH}'
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 10,
+    'pool_recycle': 3600,
+    'pool_pre_ping': True,
+}
+
 db = SQLAlchemy(app)
 
 # Comprehensive VIT College Route (Real Coordinates covering entire campus)
 COLLEGE_ROUTE = [
-    (12.9692, 79.1559),  # Main Gate
-    (12.9698, 79.1565),  # Security check area
-    (12.9705, 79.1571),  # Administrative area
-    (12.9710, 79.1577),  # MB Block (Mudaliar Block)
-    (12.9715, 79.1583),  # GDN Block (GD Naidu)
-    (12.9720, 79.1590),  # CDMM Building
-    (12.9725, 79.1596),  # SMV Building (Sri M Vishweshwaraiah)
-    (12.9730, 79.1602),  # CBMR Block
-    (12.9735, 79.1608),  # TT (Technology Tower)
-    (12.9740, 79.1614),  # SJT (Silver Jubilee Tower)
-    (12.9745, 79.1620),  # Central Library (7-floor)
-    (12.9750, 79.1626),  # Gandhi Block
-    (12.9755, 79.1632),  # Sports Complex
-    (12.9760, 79.1638),  # Swimming Pool
-    (12.9765, 79.1644),  # Outdoor Stadium
-    (12.9770, 79.1650),  # A Block Hostel
-    (12.9775, 79.1656),  # B Block Hostel
-    (12.9780, 79.1662),  # C Block Hostel
-    (12.9785, 79.1668),  # D Block Hostel
-    (12.9790, 79.1674),  # E Block Hostel
-    (12.9795, 79.1680),  # F Block Hostel
-    (12.9800, 79.1686),  # G Block Hostel
-    (12.9805, 79.1692),  # H Block Hostel
-    (12.9810, 79.1698),  # J Block Hostel
-    (12.9815, 79.1704),  # K Block Hostel
-    (12.9820, 79.1710),  # L Block Hostel
-    (12.9825, 79.1716),  # M Block Hostel (Fresh year favorite)
-    (12.9830, 79.1722),  # N Block Hostel (Fresh year favorite)
-    (12.9835, 79.1728),  # P Block Hostel
-    (12.9840, 79.1734),  # Q Block Hostel (Newest, Deluxe, Centralized AC)
-    (12.9835, 79.1740),  # Ladies Hostel A Block
-    (12.9830, 79.1746),  # Ladies Hostel B Block
-    (12.9825, 79.1752),  # Ladies Hostel C Block
-    (12.9820, 79.1758),  # Ladies Hostel D Block
-    (12.9815, 79.1764),  # Ladies Hostel E Block
-    (12.9810, 79.1770),  # Ladies Hostel F Block
-    (12.9805, 79.1776),  # Food Court Central
-    (12.9800, 79.1782),  # Cafeteria complex
-    (12.9795, 79.1788),  # Shopping complex
-    (12.9790, 79.1794),  # Anna Auditorium (1800 capacity)
-    (12.9785, 79.1800),  # Conference halls
-    (12.9780, 79.1806),  # Health Center
-    (12.9775, 79.1812),  # Medical facilities
-    (12.9770, 79.1805),  # Eastern facilities
-    (12.9765, 79.1798),  # Research centers
-    (12.9760, 79.1791),  # Labs complex
-    (12.9755, 79.1784),  # Engineering workshops
-    (12.9750, 79.1777),  # Central plaza
-    (12.9745, 79.1770),  # Student services
-    (12.9740, 79.1763),  # Academic support
-    (12.9735, 79.1756),  # Faculty areas
-    (12.9730, 79.1749),  # Administrative return
-    (12.9725, 79.1742),  # Campus center return
-    (12.9720, 79.1735),  # Academic zone return
-    (12.9715, 79.1728),  # Library return path
-    (12.9710, 79.1721),  # Main academic return
-    (12.9705, 79.1714),  # Central return
-    (12.9700, 79.1707),  # Near main gate area
-    (12.9695, 79.1700),  # Gate approach
-    (12.9692, 79.1559),  # Back to Main Gate
+    (12.9692, 79.1559), # Main Gate
+    (12.9698, 79.1565), # Security check area
+    (12.9705, 79.1571), # Administrative area
+    (12.9710, 79.1577), # MB Block (Mudaliar Block)
+    (12.9715, 79.1583), # GDN Block (GD Naidu)
+    (12.9720, 79.1590), # CDMM Building
+    (12.9725, 79.1596), # SMV Building (Sri M Vishweshwaraiah)
+    (12.9730, 79.1602), # CBMR Block
+    (12.9735, 79.1608), # TT (Technology Tower)
+    (12.9740, 79.1614), # SJT (Silver Jubilee Tower)
+    (12.9745, 79.1620), # Central Library (7-floor)
+    (12.9750, 79.1626), # Gandhi Block
+    (12.9755, 79.1632), # Sports Complex
+    (12.9760, 79.1638), # Swimming Pool
+    (12.9765, 79.1644), # Outdoor Stadium
+    (12.9770, 79.1650), # A Block Hostel
+    (12.9775, 79.1656), # B Block Hostel
+    (12.9780, 79.1662), # C Block Hostel
+    (12.9785, 79.1668), # D Block Hostel
+    (12.9790, 79.1674), # E Block Hostel
+    (12.9795, 79.1680), # F Block Hostel
+    (12.9800, 79.1686), # G Block Hostel
+    (12.9805, 79.1692), # H Block Hostel
+    (12.9810, 79.1698), # J Block Hostel
+    (12.9815, 79.1704), # K Block Hostel
+    (12.9820, 79.1710), # L Block Hostel
+    (12.9825, 79.1716), # M Block Hostel (Fresh year favorite)
+    (12.9830, 79.1722), # N Block Hostel (Fresh year favorite)
+    (12.9835, 79.1728), # P Block Hostel
+    (12.9840, 79.1734), # Q Block Hostel (Newest, Deluxe, Centralized AC)
+    (12.9835, 79.1740), # Ladies Hostel A Block
+    (12.9830, 79.1746), # Ladies Hostel B Block
+    (12.9825, 79.1752), # Ladies Hostel C Block
+    (12.9820, 79.1758), # Ladies Hostel D Block
+    (12.9815, 79.1764), # Ladies Hostel E Block
+    (12.9810, 79.1770), # Ladies Hostel F Block
+    (12.9805, 79.1776), # Food Court Central
+    (12.9800, 79.1782), # Cafeteria complex
+    (12.9795, 79.1788), # Shopping complex
+    (12.9790, 79.1794), # Anna Auditorium (1800 capacity)
+    (12.9785, 79.1800), # Conference halls
+    (12.9780, 79.1806), # Health Center
+    (12.9775, 79.1812), # Medical facilities
+    (12.9770, 79.1805), # Eastern facilities
+    (12.9765, 79.1798), # Research centers
+    (12.9760, 79.1791), # Labs complex
+    (12.9755, 79.1784), # Engineering workshops
+    (12.9750, 79.1777), # Central plaza
+    (12.9745, 79.1770), # Student services
+    (12.9740, 79.1763), # Academic support
+    (12.9735, 79.1756), # Faculty areas
+    (12.9730, 79.1749), # Administrative return
+    (12.9725, 79.1742), # Campus center return
+    (12.9720, 79.1735), # Academic zone return
+    (12.9715, 79.1728), # Library return path
+    (12.9710, 79.1721), # Main academic return
+    (12.9705, 79.1714), # Central return
+    (12.9700, 79.1707), # Near main gate area
+    (12.9695, 79.1700), # Gate approach
+    (12.9692, 79.1559), # Back to Main Gate
 ]
 
 # Student Location Options for ETA calculation
@@ -139,7 +173,10 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 def get_db_connection():
-    conn = sqlite3.connect("shuttle.db")
+    """Get SQLite connection for campus database (separate from auth DB)"""
+    BASEDIR = os.path.abspath(os.path.dirname(__file__))
+    db_path = os.path.join(BASEDIR, 'shuttle.db')
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -159,14 +196,11 @@ def login_required(role=None):
 def haversine_distance(lat1, lon1, lat2, lon2):
     """Calculate distance between two points on Earth (in km)"""
     R = 6371  # Earth's radius in kilometers
-    
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    
-    a = (math.sin(dlat/2) * math.sin(dlat/2) + 
-         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * 
+    a = (math.sin(dlat/2) * math.sin(dlat/2) +
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
          math.sin(dlon/2) * math.sin(dlon/2))
-    
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
 
@@ -180,6 +214,7 @@ def calculate_eta(current_pos, destination, avg_speed_kmh=25):
 def init_database():
     with app.app_context():
         db.create_all()
+        
         # Default admin
         if not User.query.filter_by(role='admin', is_approved=True).first():
             default_admin = User(
@@ -192,20 +227,22 @@ def init_database():
             db.session.add(default_admin)
             db.session.commit()
             print("Default admin created: admin@vit.edu / admin123")
-
+    
     # Ensure campus tables exist and have `email`
     conn = get_db_connection()
+    
     # Create students table if not exists
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS students (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            registration TEXT UNIQUE,
-            balance REAL,
-            face_encoding BLOB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
+    CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        registration TEXT UNIQUE,
+        balance REAL,
+        face_encoding BLOB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
     """)
+    
     # Add email column if missing
     cols = [c['name'] for c in conn.execute("PRAGMA table_info(students)").fetchall()]
     if 'email' not in cols:
@@ -213,30 +250,30 @@ def init_database():
     
     # Create transactions
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            student_id INTEGER,
-            amount REAL,
-            transaction_type TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(student_id) REFERENCES students(id)
-        )
+    CREATE TABLE IF NOT EXISTS transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        student_id INTEGER,
+        amount REAL,
+        transaction_type TEXT,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(student_id) REFERENCES students(id)
+    )
     """)
     
     # Shuttle location table for live tracking
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS shuttle_location (
-            shuttle_id TEXT PRIMARY KEY,
-            latitude REAL,
-            longitude REAL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
+    CREATE TABLE IF NOT EXISTS shuttle_location (
+        shuttle_id TEXT PRIMARY KEY,
+        latitude REAL,
+        longitude REAL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
     """)
     
     # Initialize shuttle position at main gate
     conn.execute("""
-        INSERT OR REPLACE INTO shuttle_location (shuttle_id, latitude, longitude, timestamp)
-        VALUES ('shuttle_01', ?, ?, ?)
+    INSERT OR REPLACE INTO shuttle_location (shuttle_id, latitude, longitude, timestamp)
+    VALUES ('shuttle_01', ?, ?, ?)
     """, (COLLEGE_ROUTE[0][0], COLLEGE_ROUTE[0][1], datetime.now()))
     
     conn.commit()
@@ -258,15 +295,14 @@ def index():
     conn.close()
     
     return render_template("index.html",
-                           total_students=total_students,
-                           total_balance=total_balance,
-                           total_transactions=total_transactions)
+                         total_students=total_students,
+                         total_balance=total_balance,
+                         total_transactions=total_transactions)
 
 @app.route("/student_auth", methods=["POST"])
 def student_auth():
     email = request.form.get("email", "").lower().strip()
     password = request.form.get("password", "")
-    
     user = User.query.filter_by(email=email, role='student').first()
     
     if user:
@@ -291,12 +327,10 @@ def student_auth():
             )
             db.session.add(new_user)
             db.session.commit()
-            
             session['user_id'] = new_user.id
             session['email'] = new_user.email
             session['role'] = new_user.role
             session['name'] = new_user.name
-            
             flash('Account created successfully!', 'success')
             return redirect(url_for('student_dashboard'))
         except Exception:
@@ -304,7 +338,7 @@ def student_auth():
     
     return redirect(url_for('index'))
 
-@app.route("/student_register", methods=["GET", "POST"])  
+@app.route("/student_register", methods=["GET", "POST"])
 def student_register():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -316,6 +350,7 @@ def student_register():
         
         try:
             image_array = None
+            
             if "photo_data" in request.form and request.form["photo_data"]:
                 data_url = request.form["photo_data"]
                 header, b64data = data_url.split(",", 1)
@@ -328,16 +363,19 @@ def student_register():
                 image_array = np.array(image)
             else:
                 return render_template("student_register.html", error="Please provide a photo")
-
+            
             face_encodings = face_recognition.face_encodings(image_array)
+            
             if len(face_encodings) == 0:
                 return render_template("student_register.html", error="No face detected in photo")
+            
             if len(face_encodings) > 1:
                 return render_template("student_register.html", error="Multiple faces detected - use single face photo")
             
             face_encoding = face_encodings[0]
-
+            
             conn = get_db_connection()
+            
             try:
                 rows = conn.execute("SELECT face_encoding FROM students").fetchall()
                 existing_encodings = []
@@ -347,18 +385,20 @@ def student_register():
                         existing_encodings.append(enc)
                     except:
                         continue
-
+                
                 matches = face_recognition.compare_faces(existing_encodings, face_encoding, tolerance=0.6)
+                
                 if any(matches):
                     conn.close()
                     return render_template("student_register.html", error="Your face is already registered")
-
+                
                 reg_number = f"STU{int(time.time())}"
                 
                 conn.execute("""
-                    INSERT INTO students (name, registration, balance, face_encoding, email)
-                    VALUES (?, ?, ?, ?, ?)
+                INSERT INTO students (name, registration, balance, face_encoding, email)
+                VALUES (?, ?, ?, ?, ?)
                 """, (name, reg_number, 0.0, pickle.dumps(face_encoding), email))
+                
                 conn.commit()
                 conn.close()
                 
@@ -370,6 +410,7 @@ def student_register():
                     role='student',
                     is_approved=True
                 )
+                
                 db.session.add(new_user)
                 db.session.commit()
                 
@@ -380,11 +421,11 @@ def student_register():
                 
                 flash("Registration successful! Add balance to start using shuttle service.", "success")
                 return redirect(url_for("student_dashboard"))
-                
+            
             except Exception as e:
                 conn.close()
                 return render_template("student_register.html", error=f"Registration failed: {str(e)}")
-                
+        
         except Exception as e:
             return render_template("student_register.html", error=f"Photo processing failed: {str(e)}")
     
@@ -431,6 +472,7 @@ def delete_driver(user_id):
         driver_name = user.name
         db.session.delete(user)
         db.session.commit()
+        
         flash(f'Driver {driver_name} deleted successfully', 'success')
     except Exception as e:
         flash(f'Error deleting driver: {str(e)}', 'error')
@@ -488,6 +530,7 @@ def request_access():
             is_approved=False,
             reason=reason
         )
+        
         db.session.add(new_request)
         db.session.commit()
         
@@ -514,6 +557,7 @@ def student_dashboard():
     except:
         balance = 0
     conn.close()
+    
     return render_template("student_dashboard.html", balance=balance)
 
 @app.route("/shuttle")
@@ -530,24 +574,26 @@ def admin_dashboard():
     conn = get_db_connection()
     students = []
     transactions = []
+    
     try:
         students = conn.execute("SELECT * FROM students ORDER BY name").fetchall()
         transactions = conn.execute("""
-            SELECT t.*, s.name, s.registration 
-            FROM transactions t 
-            JOIN students s ON t.student_id = s.id 
-            ORDER BY t.timestamp DESC 
-            LIMIT 10
+        SELECT t.*, s.name, s.registration
+        FROM transactions t
+        JOIN students s ON t.student_id = s.id
+        ORDER BY t.timestamp DESC
+        LIMIT 10
         """).fetchall()
     except:
         pass
+    
     conn.close()
     
-    return render_template("admin_dashboard.html", 
-                           pending_users=pending_users,
-                           approved_drivers=approved_drivers,
-                           students=students,
-                           transactions=transactions)
+    return render_template("admin_dashboard.html",
+                         pending_users=pending_users,
+                         approved_drivers=approved_drivers,
+                         students=students,
+                         transactions=transactions)
 
 @app.route("/admin/approve/<int:user_id>")
 @login_required(role="admin")
@@ -555,6 +601,7 @@ def approve_user(user_id):
     user = User.query.get_or_404(user_id)
     user.is_approved = True
     db.session.commit()
+    
     flash(f'{user.name} ({user.role}) has been approved!', 'success')
     return redirect(url_for('admin_dashboard'))
 
@@ -564,6 +611,7 @@ def reject_user(user_id):
     user = User.query.get_or_404(user_id)
     db.session.delete(user)
     db.session.commit()
+    
     flash(f'{user.name} ({user.role}) request has been rejected.', 'success')
     return redirect(url_for('admin_dashboard'))
 
@@ -577,6 +625,7 @@ def register():
         
         try:
             image_array = None
+            
             if "photo_data" in request.form and request.form["photo_data"]:
                 data_url = request.form["photo_data"]
                 header, b64data = data_url.split(",", 1)
@@ -589,16 +638,19 @@ def register():
                 image_array = np.array(image)
             else:
                 return render_template("register.html", error="No photo captured or uploaded")
-
+            
             face_encodings = face_recognition.face_encodings(image_array)
+            
             if len(face_encodings) == 0:
                 return render_template("register.html", error="No face found in image")
+            
             if len(face_encodings) > 1:
                 return render_template("register.html", error="Multiple faces found")
             
             face_encoding = face_encodings[0]
-
+            
             conn = get_db_connection()
+            
             try:
                 rows = conn.execute("SELECT face_encoding FROM students").fetchall()
                 existing_encodings = []
@@ -608,26 +660,28 @@ def register():
                         existing_encodings.append(enc)
                     except:
                         continue
-
+                
                 matches = face_recognition.compare_faces(existing_encodings, face_encoding, tolerance=0.6)
+                
                 if any(matches):
                     conn.close()
                     return render_template("register.html", error="Similar face already registered")
-
+                
                 conn.execute("""
-                    INSERT INTO students (name, registration, balance, face_encoding)
-                    VALUES (?, ?, ?, ?)
+                INSERT INTO students (name, registration, balance, face_encoding)
+                VALUES (?, ?, ?, ?)
                 """, (name, reg_number, balance, pickle.dumps(face_encoding)))
+                
                 conn.commit()
                 conn.close()
                 
                 flash("Student registered successfully!", "success")
                 return redirect(url_for("admin_dashboard"))
-                
+            
             except Exception as e:
                 conn.close()
                 return render_template("register.html", error=f"Database error: {str(e)}")
-                
+        
         except Exception as e:
             return render_template("register.html", error=f"Registration failed: {str(e)}")
     
@@ -639,6 +693,7 @@ def register():
 def create_payment_order():
     amount = int(request.form.get("amount", 50)) * 100
     order_id = f"order_demo_{int(time.time())}"
+    
     return jsonify({
         'success': True,
         'order_id': order_id,
@@ -650,23 +705,22 @@ def create_payment_order():
 @login_required(role="student")
 def verify_payment():
     amount = int(request.form.get('amount')) // 100
-    
     conn = get_db_connection()
+    
     try:
         student = conn.execute("SELECT id FROM students WHERE email = ?", (session['email'],)).fetchone()
         if student:
             conn.execute("UPDATE students SET balance = balance + ? WHERE id = ?", (amount, student['id']))
-            conn.execute("INSERT INTO transactions (student_id, amount, transaction_type) VALUES (?, ?, ?)", 
-                       (student['id'], amount, "balance_add"))
+            conn.execute("INSERT INTO transactions (student_id, amount, transaction_type) VALUES (?, ?, ?)",
+                        (student['id'], amount, "balance_add"))
             conn.commit()
-            
         conn.close()
-        flash(f'Successfully added ₹{amount} to your balance!', 'success')
         
+        flash(f'Successfully added ₹{amount} to your balance!', 'success')
     except Exception as e:
         conn.close()
         flash(f'Payment successful but balance update failed: {str(e)}', 'error')
-        
+    
     return redirect(url_for('student_dashboard'))
 
 @app.route("/add_balance", methods=["GET"])
@@ -683,9 +737,10 @@ def scan_page():
 @login_required(role="shuttle")
 def scan_post():
     data_url = request.form.get("photo_data", "")
+    
     if not data_url:
         return jsonify({"ok": False, "error": "No image received"}), 400
-
+    
     try:
         header, b64data = data_url.split(",", 1)
         img_bytes = base64.b64decode(b64data)
@@ -693,12 +748,14 @@ def scan_post():
         img_np = np.array(img)
     except Exception as e:
         return jsonify({"ok": False, "error": f"Invalid image: {e}"}), 400
-
+    
     encs = face_recognition.face_encodings(img_np)
+    
     if len(encs) == 0:
         return jsonify({"ok": False, "error": "No face found"}), 200
     
     probe = encs[0]
+    
     conn = get_db_connection()
     
     try:
@@ -716,7 +773,7 @@ def scan_post():
         if not known_encs:
             conn.close()
             return jsonify({"ok": False, "error": "No enrolled students"}), 200
-
+        
         dists = face_recognition.face_distance(known_encs, probe)
         best_idx = int(np.argmin(dists))
         best_dist = float(dists[best_idx])
@@ -724,11 +781,13 @@ def scan_post():
         if best_dist > 0.6:
             conn.close()
             return jsonify({"ok": False, "error": "No match found"}), 200
-
+        
         student = meta[best_idx]
+        
         FARE_AMOUNT = 20.0
         
         conn.execute("BEGIN IMMEDIATE")
+        
         curr_balance = float(conn.execute("SELECT balance FROM students WHERE id = ?", (student["id"],)).fetchone()["balance"])
         
         if curr_balance < FARE_AMOUNT:
@@ -737,14 +796,16 @@ def scan_post():
             return jsonify({"ok": False, "error": "Insufficient balance", "balance": curr_balance}), 200
         
         new_balance = curr_balance - FARE_AMOUNT
+        
         conn.execute("UPDATE students SET balance = ? WHERE id = ?", (new_balance, student["id"]))
         conn.execute("INSERT INTO transactions (student_id, amount, transaction_type) VALUES (?, ?, ?)",
                     (student["id"], -FARE_AMOUNT, "shuttle_ride"))
+        
         conn.commit()
         conn.close()
         
         return jsonify({"ok": True, "match": student, "fare": FARE_AMOUNT, "new_balance": new_balance}), 200
-        
+    
     except Exception as e:
         try:
             conn.execute("ROLLBACK")
@@ -764,7 +825,6 @@ def track_shuttle():
 def simulate_shuttle():
     """Move shuttle to next position along the route"""
     conn = get_db_connection()
-    
     try:
         # Get current position
         current = conn.execute(
@@ -781,7 +841,6 @@ def simulate_shuttle():
             # Find closest point in route
             min_distance = float('inf')
             current_index = 0
-            
             for i, (lat, lon) in enumerate(COLLEGE_ROUTE):
                 distance = haversine_distance(current_lat, current_lon, lat, lon)
                 if distance < min_distance:
@@ -794,8 +853,8 @@ def simulate_shuttle():
         
         # Update position in database
         conn.execute("""
-            INSERT OR REPLACE INTO shuttle_location (shuttle_id, latitude, longitude, timestamp)
-            VALUES ('shuttle_01', ?, ?, ?)
+        INSERT OR REPLACE INTO shuttle_location (shuttle_id, latitude, longitude, timestamp)
+        VALUES ('shuttle_01', ?, ?, ?)
         """, (next_pos[0], next_pos[1], datetime.now()))
         
         conn.commit()
@@ -807,7 +866,7 @@ def simulate_shuttle():
             'current_index': (current_index + 1) % len(COLLEGE_ROUTE),
             'total_stops': len(COLLEGE_ROUTE)
         })
-        
+    
     except Exception as e:
         conn.close()
         return jsonify({'success': False, 'error': str(e)})
@@ -822,15 +881,17 @@ def update_location():
         longitude = float(data.get('longitude'))
         
         conn = get_db_connection()
+        
         conn.execute("""
-            INSERT OR REPLACE INTO shuttle_location (shuttle_id, latitude, longitude, timestamp)
-            VALUES (?, ?, ?, ?)
+        INSERT OR REPLACE INTO shuttle_location (shuttle_id, latitude, longitude, timestamp)
+        VALUES (?, ?, ?, ?)
         """, (shuttle_id, latitude, longitude, datetime.now()))
+        
         conn.commit()
         conn.close()
         
         return jsonify({'success': True, 'message': 'Location updated'})
-        
+    
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -838,7 +899,6 @@ def update_location():
 def get_shuttle_location(shuttle_id):
     """Get current shuttle location"""
     conn = get_db_connection()
-    
     try:
         shuttle = conn.execute(
             "SELECT * FROM shuttle_location WHERE shuttle_id = ? ORDER BY timestamp DESC LIMIT 1",
@@ -853,7 +913,7 @@ def get_shuttle_location(shuttle_id):
         
         # Calculate ETA to key destinations
         eta_hostel = calculate_eta(current_pos, HOSTEL_LOCATION)
-        eta_library = calculate_eta(current_pos, LIBRARY_LOCATION) 
+        eta_library = calculate_eta(current_pos, LIBRARY_LOCATION)
         eta_academic = calculate_eta(current_pos, ACADEMIC_CENTER)
         
         conn.close()
@@ -870,7 +930,7 @@ def get_shuttle_location(shuttle_id):
                 'academic': {'location': ACADEMIC_CENTER, 'eta': eta_academic, 'name': 'Academic Center'}
             }
         })
-        
+    
     except Exception as e:
         conn.close()
         return jsonify({'error': str(e)}), 500
@@ -889,15 +949,18 @@ def calculate_eta_endpoint():
         
         # Get current shuttle position
         conn = get_db_connection()
+        
         shuttle = conn.execute(
             "SELECT * FROM shuttle_location WHERE shuttle_id = 'shuttle_01' ORDER BY timestamp DESC LIMIT 1"
         ).fetchone()
+        
         conn.close()
         
         if not shuttle:
             return jsonify({'error': 'Shuttle location not found'}), 404
         
         shuttle_pos = (shuttle['latitude'], shuttle['longitude'])
+        
         eta_minutes = calculate_eta(shuttle_pos, user_coords)
         
         return jsonify({
@@ -906,7 +969,7 @@ def calculate_eta_endpoint():
             'shuttle_position': shuttle_pos,
             'user_position': user_coords
         })
-        
+    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -914,12 +977,11 @@ def calculate_eta_endpoint():
 def start_shuttle():
     """Initialize and start shuttle simulation"""
     conn = get_db_connection()
-    
     try:
         # Reset shuttle to main gate
         conn.execute("""
-            INSERT OR REPLACE INTO shuttle_location (shuttle_id, latitude, longitude, timestamp)
-            VALUES ('shuttle_01', ?, ?, ?)
+        INSERT OR REPLACE INTO shuttle_location (shuttle_id, latitude, longitude, timestamp)
+        VALUES ('shuttle_01', ?, ?, ?)
         """, (COLLEGE_ROUTE[0][0], COLLEGE_ROUTE[0][1], datetime.now()))
         
         conn.commit()
@@ -930,19 +992,35 @@ def start_shuttle():
             'message': 'Shuttle started at Main Gate',
             'position': COLLEGE_ROUTE[0]
         })
-        
+    
     except Exception as e:
         conn.close()
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == "__main__":
+    # Initialize database before starting server
     init_database()
-    print("ShutterShuttle Server with Comprehensive VIT Tracking Starting...")
-    print("Access at: http://127.0.0.1:5000")
-    print("Live tracking at: http://127.0.0.1:5000/track_shuttle")
+    
+    # Get configuration from environment or use defaults
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    env = os.environ.get('FLASK_ENV', 'development')
+    
+    # Print startup information
+    print("\n" + "="*60)
+    print("ShutterShuttle Server with Comprehensive VIT Tracking")
+    print("="*60)
+    print(f"Environment: {env.upper()}")
+    print(f"Debug Mode: {debug}")
+    print(f"Port: {port}")
+    print(f"Access at: http://localhost:{port}")
+    print(f"Live tracking: http://localhost:{port}/track_shuttle")
     print("Default Admin: admin@vit.edu / admin123")
     print(f"Route covers {len(COLLEGE_ROUTE)} locations across VIT campus")
     print("Includes all academic blocks (MB, GDN, CDMM, SMV, CBMR, TT, SJT, Gandhi)")
     print("All hostel blocks A through Q (including newest Q Block)")
     print("Sports, library, medical, and food court areas")
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    print("="*60 + "\n")
+    
+    # Start Flask application
+    app.run(debug=debug, host="0.0.0.0", port=port)

@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: shuttershuttle
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: false
+      - key: PYTHONUNBUFFERED
+        value: 1
+    autoDeploy: true
+
+  - type: pserv
+    name: shuttershuttle-db
+    dbName: shuttershuttle
+    plan: free
